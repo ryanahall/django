@@ -32,6 +32,8 @@ class Command(BaseCommand):
             help='Mark migrations as run without actually running them'),
         make_option('--list', '-l', action='store_true', dest='list', default=False,
             help='Show a list of all known migrations and which are applied'),
+        make_option('--skip-autodetect', '-s', action='store_true', dest='skip_autodetect', default=False,
+            help='Skip autodetection of model changes not in migrations')
     )
 
     help = "Updates database schema. Manages both apps with migrations and those without."
@@ -44,6 +46,7 @@ class Command(BaseCommand):
         self.show_traceback = options.get('traceback')
         self.load_initial_data = options.get('load_initial_data')
         self.test_database = options.get('test_database', False)
+        self.skip_autodetect = options.get('skip_autodetect', False)
 
         # Import the 'management' module within each installed app, to register
         # dispatcher events.
@@ -148,6 +151,8 @@ class Command(BaseCommand):
         if not plan:
             if self.verbosity >= 1:
                 self.stdout.write("  No migrations to apply.")
+                
+            if not self.skip_autodetect:
                 # If there's changes that aren't in migrations yet, tell them how to fix it.
                 autodetector = MigrationAutodetector(
                     executor.loader.project_state(),
