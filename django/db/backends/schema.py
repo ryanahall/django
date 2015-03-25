@@ -359,7 +359,8 @@ class BaseDatabaseSchemaEditor(object):
         table instead (for M2M fields)
         """
         # Special-case implicit M2M tables
-        if isinstance(field, ManyToManyField) and field.rel.through._meta.auto_created:
+        if ((isinstance(field, ManyToManyField) or field.get_internal_type() == 'ManyToManyField') and
+                field.rel.through._meta.auto_created):
             return self.create_model(field.rel.through)
         # Get the column's definition
         definition, params = self.column_sql(model, field, include_default=True)
@@ -403,7 +404,8 @@ class BaseDatabaseSchemaEditor(object):
         but for M2Ms may involve deleting a table.
         """
         # Special-case implicit M2M tables
-        if isinstance(field, ManyToManyField) and field.rel.through._meta.auto_created:
+        if ((isinstance(field, ManyToManyField) or field.get_internal_type() == 'ManyToManyField') and
+                field.rel.through._meta.auto_created):
             return self.delete_model(field.rel.through)
         # It might not actually have a column behind it
         if field.db_parameters(connection=self.connection)['type'] is None:
@@ -457,18 +459,6 @@ class BaseDatabaseSchemaEditor(object):
     def _alter_field(self, model, old_field, new_field, old_type, new_type, old_db_params, new_db_params, strict=False):
         """Actually perform a "physical" (non-ManyToMany) field update."""
 
-        # Has unique been removed?
-        if old_field.unique and (not new_field.unique or (not old_field.primary_key and new_field.primary_key)):
-            # Find the unique constraint for this field
-            constraint_names = self._constraint_names(model, [old_field.column], unique=True)
-            if strict and len(constraint_names) != 1:
-                raise ValueError("Found wrong number (%s) of unique constraints for %s.%s" % (
-                    len(constraint_names),
-                    model._meta.db_table,
-                    old_field.column,
-                ))
-            for constraint_name in constraint_names:
-                self.execute(self._delete_constraint_sql(self.sql_delete_unique, model, constraint_name))
         # Drop any FK constraints, we'll remake them later
         fks_dropped = set()
         if old_field.rel and old_field.db_constraint:
@@ -482,6 +472,18 @@ class BaseDatabaseSchemaEditor(object):
             for fk_name in fk_names:
                 fks_dropped.add((old_field.column,))
                 self.execute(self._delete_constraint_sql(self.sql_delete_fk, model, fk_name))
+        # Has unique been removed?
+        if old_field.unique and (not new_field.unique or (not old_field.primary_key and new_field.primary_key)):
+            # Find the unique constraint for this field
+            constraint_names = self._constraint_names(model, [old_field.column], unique=True)
+            if strict and len(constraint_names) != 1:
+                raise ValueError("Found wrong number (%s) of unique constraints for %s.%s" % (
+                    len(constraint_names),
+                    model._meta.db_table,
+                    old_field.column,
+                ))
+            for constraint_name in constraint_names:
+                self.execute(self._delete_constraint_sql(self.sql_delete_unique, model, constraint_name))
         # Drop incoming FK constraints if we're a primary key and things are going
         # to change.
         if old_field.primary_key and new_field.primary_key and old_type != new_type:
@@ -673,9 +675,9 @@ class BaseDatabaseSchemaEditor(object):
                 }
             )
         # Does it have a foreign key?
-        if new_field.rel and \
-           (fks_dropped or (old_field.rel and not old_field.db_constraint)) and \
-           new_field.db_constraint:
+        if (new_field.rel and
+                (fks_dropped or not old_field.rel or not old_field.db_constraint) and
+                new_field.db_constraint):
             self.execute(self._create_fk_sql(model, new_field, "_fk_%(to_table)s_%(to_column)s"))
         # Rebuild FKs that pointed to us if we previously had to drop them
         if old_field.primary_key and new_field.primary_key and old_type != new_type:

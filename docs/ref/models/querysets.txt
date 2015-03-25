@@ -57,11 +57,10 @@ You can evaluate a ``QuerySet`` in the following ways:
 * **len().** A ``QuerySet`` is evaluated when you call ``len()`` on it.
   This, as you might expect, returns the length of the result list.
 
-  Note: *Don't* use ``len()`` on ``QuerySet``\s if all you want to do is
-  determine the number of records in the set. It's much more efficient to
-  handle a count at the database level, using SQL's ``SELECT COUNT(*)``,
-  and Django provides a ``count()`` method for precisely this reason. See
-  ``count()`` below.
+  Note: If you only need to determine the number of records in the set (and
+  don't need the actual objects), it's much more efficient to handle a count
+  at the database level using SQL's ``SELECT COUNT(*)``. Django provides a
+  :meth:`~QuerySet.count` method for precisely this reason.
 
 * **list().** Force evaluation of a ``QuerySet`` by calling ``list()`` on
   it. For example::
@@ -76,9 +75,8 @@ You can evaluate a ``QuerySet`` in the following ways:
       if Entry.objects.filter(headline="Test"):
          print("There is at least one Entry with the headline Test")
 
-  Note: *Don't* use this if all you want to do is determine if at least one
-  result exists, and don't need the actual objects. It's more efficient to
-  use :meth:`~QuerySet.exists` (see below).
+  Note: If you only want to determine if at least one result exists (and don't
+  need the actual objects), it's more efficient to use :meth:`~QuerySet.exists`.
 
 .. _pickling QuerySets:
 
@@ -349,6 +347,11 @@ ordering, call :meth:`order_by()` with no parameters.
 You can tell if a query is ordered or not by checking the
 :attr:`.QuerySet.ordered` attribute, which will be ``True`` if the
 ``QuerySet`` has been ordered in any way.
+
+Each ``order_by()`` call will clear any previous ordering. For example, this
+query will be ordered by ``pub_date`` and not ``headline``::
+
+    Entry.objects.order_by('headline').order_by('pub_date')
 
 .. warning::
 
@@ -773,8 +776,8 @@ You can use ``select_related()`` with any queryset of objects::
 The order of ``filter()`` and ``select_related()`` chaining isn't important.
 These querysets are equivalent::
 
-    Entry.objects.filter(pub_date__gt=timezone.now()).selected_related('blog')
-    Entry.objects.selected_related('blog').filter(pub_date__gt=timezone.now())
+    Entry.objects.filter(pub_date__gt=timezone.now()).select_related('blog')
+    Entry.objects.select_related('blog').filter(pub_date__gt=timezone.now())
 
 You can follow foreign keys in a similar way to querying them. If you have the
 following models::
@@ -1775,6 +1778,11 @@ Depending on which database you're using (e.g. PostgreSQL vs. MySQL),
 ``count()`` may return a long integer instead of a normal Python integer. This
 is an underlying implementation quirk that shouldn't pose any real-world
 problems.
+
+Note that if you want the number of items in a ``QuerySet`` and are also
+retrieving model instances from it (for example, by iterating over it), it's
+probably more efficient to use ``len(queryset)`` which won't cause an extra
+database query like ``count()`` would.
 
 in_bulk
 ~~~~~~~

@@ -1518,6 +1518,22 @@ As :class:`~collections.OrderedDict` was added to the standard library in
 Python 2.7, :class:`~django.utils.datastructures.SortedDict` is no longer
 needed and has been deprecated.
 
+The two additional, deprecated methods provided by ``SortedDict`` (``insert()``
+and ``value_for_index()``) have been removed. If you relied on these methods to
+alter structures like form fields, you should now treat these ``OrderedDict``\s
+as immutable objects and override them to change their content.
+
+For example, you might want to override ``MyFormClass.base_fields`` (although
+this attribute isn't considered a public API) to change the ordering of fields
+for all ``MyFormClass`` instances; or similarly, you could override
+``self.fields`` from inside ``MyFormClass.__init__()``, to change the fields
+for a particular form instance. For example (from Django itself)::
+
+    PasswordChangeForm.base_fields = OrderedDict(
+        (k, PasswordChangeForm.base_fields[k])
+        for k in ['old_password', 'new_password1', 'new_password2']
+    )
+
 Custom SQL location for models package
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -1554,7 +1570,7 @@ Reorganization of ``django.contrib.contenttypes``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Since ``django.contrib.contenttypes.generic`` defined both admin and model
-related objects an import of this module could trigger unexpected side effects.
+related objects, an import of this module could trigger unexpected side effects.
 As a consequence, its contents were split into :mod:`~django.contrib.contenttypes`
 submodules and the ``django.contrib.contenttypes.generic`` module is deprecated:
 
@@ -1698,10 +1714,16 @@ value of the former flag is used. Defining both ``requires_system_checks`` and
 
 The ``check()`` method has replaced the old ``validate()`` method.
 
-``ModelAdmin.validator``
-~~~~~~~~~~~~~~~~~~~~~~~~
+``ModelAdmin`` validators
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``ModelAdmin.validator`` is deprecated in favor of new ``checks`` attribute.
+The ``ModelAdmin.validator_class`` and ``default_validator_class`` attributes
+are deprecated in favor of the new ``checks_class`` attribute.
+
+The ``ModelAdmin.validate()`` method is deprecated in favor of
+``ModelAdmin.check()``.
+
+The ``django.contrib.admin.validation`` module is deprecated.
 
 ``django.db.backends.DatabaseValidation.validate_field``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1760,6 +1782,30 @@ FastCGI support
 
 FastCGI support via the ``runfcgi`` management command will be removed in
 Django 1.9. Please deploy your project using WSGI.
+
+Moved objects in ``contrib.sites``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Following the app-loading refactor, two objects in
+``django.contrib.sites.models`` needed to be moved because they must be
+available without importing ``django.contrib.sites.models`` when
+``django.contrib.sites`` isn't installed. Import ``RequestSite`` from
+``django.contrib.sites.requests`` and ``get_current_site()`` from
+``django.contrib.sites.shortcuts``. The old import locations will work until
+Django 1.9.
+
+``django.forms.forms.get_declared_fields()``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Django no longer uses this functional internally. Even though it's a private
+API, it'll go through the normal deprecation cycle.
+
+Private Query Lookup APIs
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Private APIs ``django.db.models.sql.where.WhereNode.make_atom()`` and
+``django.db.models.sql.where.Constraint`` are deprecated in favor of the new
+:doc:`custom lookups API </ref/models/lookups>`.
 
 .. removed-features-1.7:
 
