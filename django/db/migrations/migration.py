@@ -66,6 +66,11 @@ class Migration(object):
     def __hash__(self):
         return hash("%s.%s" % (self.app_label, self.name))
 
+    def mutate_state_no_clone(self, project_state):
+        for operation in self.operations:
+            operation.state_forwards(self.app_label, project_state)
+        return project_state
+
     def mutate_state(self, project_state):
         """
         Takes a ProjectState and returns a new one with the migration's

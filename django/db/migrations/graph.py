@@ -220,7 +220,7 @@ class MigrationGraph(object):
                     plan.append(migration)
         project_state = ProjectState(real_apps=real_apps)
         for node in plan:
-            project_state = self.nodes[node].mutate_state(project_state)
+            project_state = self.nodes[node].mutate_state_no_clone(project_state)
         return project_state
 
     def __contains__(self, node):
