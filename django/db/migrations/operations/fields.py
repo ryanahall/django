@@ -4,6 +4,8 @@ from django.db.models.fields import NOT_PROVIDED
 from django.utils import six
 from .base import Operation
 
+import logging
+logger = logging.getLogger(__name__)
 
 class AddField(Operation):
     """
@@ -79,15 +81,25 @@ class RemoveField(Operation):
         state.models[app_label, self.model_name.lower()].fields = new_fields
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        '''
         from_model = from_state.render().get_model(app_label, self.model_name)
         if self.allowed_to_migrate(schema_editor.connection.alias, from_model):
             schema_editor.remove_field(from_model, from_model._meta.get_field_by_name(self.name)[0])
+        '''
+        # NOOP
+        logging.warn('skipping forwards db remove %s.%s field operation on app %s' % (self.model_name, self.name, app_label))
+        return
 
     def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        '''
         to_model = to_state.render().get_model(app_label, self.model_name)
         if self.allowed_to_migrate(schema_editor.connection.alias, to_model):
             from_model = from_state.render().get_model(app_label, self.model_name)
             schema_editor.add_field(from_model, to_model._meta.get_field_by_name(self.name)[0])
+        '''
+        # NOOP
+        logging.warn('skipping backwards db remove %s.%s field operation on app %s' % (self.model_name, self.name, app_label))
+        return
 
     def describe(self):
         return "Remove field %s from %s" % (self.name, self.model_name)
@@ -187,6 +199,7 @@ class RenameField(Operation):
                 ]
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        '''
         to_model = to_state.render().get_model(app_label, self.model_name)
         if self.allowed_to_migrate(schema_editor.connection.alias, to_model):
             from_model = from_state.render().get_model(app_label, self.model_name)
@@ -195,8 +208,12 @@ class RenameField(Operation):
                 from_model._meta.get_field_by_name(self.old_name)[0],
                 to_model._meta.get_field_by_name(self.new_name)[0],
             )
+        '''
+        logging.error('skipping forwards rename %s.%s field operation on app %s' % (self.model_name, self.old_name, app_label))
+        raise Exception('Rename field operations are not supported, please remove the %s.%s field and add a new one' % (self.model_name, self.old_name))
 
     def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        '''
         to_model = to_state.render().get_model(app_label, self.model_name)
         if self.allowed_to_migrate(schema_editor.connection.alias, to_model):
             from_model = from_state.render().get_model(app_label, self.model_name)
@@ -205,6 +222,10 @@ class RenameField(Operation):
                 from_model._meta.get_field_by_name(self.new_name)[0],
                 to_model._meta.get_field_by_name(self.old_name)[0],
             )
+        '''
+        # NOOP
+        logging.warn('skipping backwards rename %s.%s field operation on app %s' % (self.model_name, self.old_name, app_label))
+        return
 
     def describe(self):
         return "Rename field %s on %s to %s" % (self.old_name, self.model_name, self.new_name)

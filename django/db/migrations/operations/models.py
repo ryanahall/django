@@ -6,6 +6,8 @@ from django.db.migrations.state import ModelState
 from django.db.migrations.operations.base import Operation
 from django.utils import six
 
+import logging
+logger = logging.getLogger(__name__)
 
 class CreateModel(Operation):
     """
@@ -83,16 +85,26 @@ class DeleteModel(Operation):
         del state.models[app_label, self.name.lower()]
 
     def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        '''
         apps = from_state.render()
         model = apps.get_model(app_label, self.name)
         if self.allowed_to_migrate(schema_editor.connection.alias, model):
             schema_editor.delete_model(model)
+        '''
+        # NOOP
+        logger.warn('skipping forwards delete model %s operation on app %s' % (self.name, app_label))
+        return
 
     def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        '''
         apps = to_state.render()
         model = apps.get_model(app_label, self.name)
         if self.allowed_to_migrate(schema_editor.connection.alias, model):
             schema_editor.create_model(model)
+        '''
+        # NOOP
+        logger.warn('skipping backwards delete model %s operation on app %s' % (self.name, app_label))
+        return
 
     def references_model(self, name, app_label=None):
         return name.lower() == self.name.lower()
